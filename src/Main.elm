@@ -130,6 +130,16 @@ mapPage toModel toMsg ( subModel, subCmd ) =
 
 view : Model -> Browser.Document Msg
 view model =
+    let
+        frame toMsg config =
+            let
+                { title, body } =
+                    Page.view config
+            in
+            { title = title
+            , body = List.map (Html.map (toMsg >> GotPageMsg)) body
+            }
+    in
     case model.page of
         NotFound ->
             frame never NotFound.view
@@ -139,17 +149,6 @@ view model =
 
         Customer customer ->
             frame CustomerMsg (Customer.view customer)
-
-
-frame : (a -> PageMsg) -> Page.Document a -> Browser.Document Msg
-frame toMsg config =
-    let
-        { title, body } =
-            Page.view config
-    in
-    { title = title
-    , body = List.map (Html.map (toMsg >> GotPageMsg)) body
-    }
 
 
 
