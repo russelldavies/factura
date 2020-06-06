@@ -1,6 +1,6 @@
 module Customer exposing (Customer, decoder, encode)
 
-import Json.Decode as Decode exposing (Decoder)
+import Json.Decode as Decode exposing (Decoder, field)
 import Json.Encode as Encode
 import Ulid exposing (Ulid)
 
@@ -18,12 +18,12 @@ type alias Customer =
 decoder : Decoder Customer
 decoder =
     Decode.map6 Customer
-        (Decode.field "CustomerId" Ulid.decode)
-        (Decode.field "Name" Decode.string)
-        (Decode.field "Address" Decode.string)
-        (Decode.field "Email" Decode.string)
-        (Decode.field "Phone" Decode.string)
-        (Decode.field "TaxNum" Decode.string)
+        (field "CustomerId" <| field "S" Ulid.decode)
+        (field "Name" <| field "S" Decode.string)
+        (field "Address" <| field "S" Decode.string)
+        (field "Email" <| field "S" Decode.string)
+        (field "Phone" <| field "S" Decode.string)
+        (field "TaxNum" <| field "S" Decode.string)
 
 
 encode : Customer -> Encode.Value

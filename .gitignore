@@ -1,2 +1,4 @@
 node_modules
 elm-stuff
+.env
+src/Constants.elm

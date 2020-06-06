@@ -1,8 +1,10 @@
-module Invoice exposing (Invoice)
+module Invoice exposing (Invoice, decoder)
 
 import Customer exposing (Customer)
 import Date exposing (Date)
-import Json.Decode as Decode exposing (Decoder)
+import Invoice.Item as Item exposing (Item)
+import Json.Decode as Decode exposing (Decoder, field)
+import Json.Decode.Pipeline exposing (hardcoded, requiredAt)
 import Json.Encode as Encode
 import Supplier exposing (Supplier)
 import Ulid exposing (Ulid)
@@ -12,25 +14,29 @@ type alias Invoice =
     { invoiceId : Ulid
     , supplier : Supplier
     , customer : Customer
+    , number : String
     , issuedAt : Date
     , terms : String
     , notes : String
     , emailed : Bool
     , paid : Bool
+    , items : List Item
     }
 
 
 decoder : Decoder Invoice
 decoder =
-    Decode.map8 Invoice
-        (Decode.field "InvoiceId" Ulid.decode)
-        (Decode.field "supplier" Supplier.decoder)
-        (Decode.field "customer" Customer.decoder)
-        (Decode.field "IssuedAt" dateDecoder)
-        (Decode.field "Term" Decode.string)
-        (Decode.field "Notes" Decode.string)
-        (Decode.field "Emailed" Decode.bool)
-        (Decode.field "Paid" Decode.bool)
+    Decode.succeed Invoice
+        |> requiredAt [ "InvoiceId", "S" ] Ulid.decode
+        |> requiredAt [ "supplier", "M" ] Supplier.decoder
+        |> requiredAt [ "customer", "M" ] Customer.decoder
+        |> requiredAt [ "number", "N" ] Decode.string
+        |> requiredAt [ "IssuedAt", "S" ] dateDecoder
+        |> requiredAt [ "Term", "S" ] Decode.string
+        |> requiredAt [ "Notes", "S" ] Decode.string
+        |> requiredAt [ "Emailed", "BOOL" ] Decode.bool
+        |> requiredAt [ "Paid", "BOOL" ] Decode.bool
+        |> hardcoded []
 
 
 encode : Invoice -> Encode.Value

@@ -1,0 +1,10 @@
+{
+  "path": "./src",
+  "moduleName": "Constants",
+  "values": [
+    "ACCESS_KEY_ID",
+    "SECRET_ACCESS_KEY",
+    "AWS_REGION",
+    "TABLE_NAME"
+  ]
+}
