@@ -1,10 +1,11 @@
-module Api exposing (Operation(..), buildBody, request, send)
+module Api exposing (Operation(..), buildBody, request)
 
 import AWS.Config
 import AWS.Credentials
 import AWS.Http
 import AWS.Service
 import Constants
+import DynamoDb
 import Http
 import Json.Decode as Decode
 import Json.Encode as Encode
@@ -17,11 +18,6 @@ type Operation
     | Scan
 
 
-send : AWS.Http.Request a -> Task Http.Error a
-send req =
-    AWS.Http.send service credentials req
-
-
 request :
     { operation : Operation
     , indexName : String
@@ -29,18 +25,24 @@ request :
     , expressionAttributeValues : Encode.Value
     , decoder : Decode.Decoder a
     }
-    -> AWS.Http.Request a
+    -> Task Http.Error a
 request opts =
     let
         path =
             ""
+
+        credentials =
+            AWS.Credentials.fromAccessKeys
+                authConfig.accessKeyId
+                authConfig.secretAccessKey
     in
     AWS.Http.request
         (operationToString opts.operation)
         AWS.Http.POST
         path
-        (buildBody opts)
+        (AWS.Http.jsonBody <| buildBody opts)
         (AWS.Http.jsonBodyDecoder opts.decoder)
+        |> AWS.Http.send service credentials
 
 
 
@@ -53,7 +55,7 @@ buildBody :
         , keyConditionExpression : String
         , expressionAttributeValues : Encode.Value
     }
-    -> AWS.Http.Body
+    -> Encode.Value
 buildBody { indexName, keyConditionExpression, expressionAttributeValues } =
     Encode.object
         [ ( "TableName", Encode.string Constants.tableName )
@@ -61,36 +63,33 @@ buildBody { indexName, keyConditionExpression, expressionAttributeValues } =
         , ( "KeyConditionExpression", Encode.string keyConditionExpression )
         , ( "ExpressionAttributeValues", expressionAttributeValues )
         ]
-        |> AWS.Http.jsonBody
 
 
 service : AWS.Service.Service
 service =
-    let
-        endpointPrefix =
-            "DynamoDB"
-
-        apiVersion =
-            "20120810"
-
-        targetPrefix =
-            endpointPrefix ++ "_" ++ apiVersion
-    in
     AWS.Config.defineRegional
-        (String.toLower endpointPrefix)
-        apiVersion
+        authConfig.serviceName
+        "NOT USED"
         AWS.Config.JSON
         AWS.Config.SignV4
         Constants.awsRegion
-        |> AWS.Config.withTargetPrefix targetPrefix
+        |> AWS.Config.withTargetPrefix (apiConfig.name ++ "_" ++ apiConfig.version)
         |> AWS.Service.service
 
 
-credentials : AWS.Credentials.Credentials
-credentials =
-    AWS.Credentials.fromAccessKeys
-        Constants.accessKeyId
-        Constants.secretAccessKey
+authConfig =
+    { awsRegion = Constants.awsRegion
+    , serviceName = "dynamodb"
+    , accessKeyId = Constants.accessKeyId
+    , secretAccessKey = Constants.secretAccessKey
+    , sessionToken = Nothing
+    }
+
+
+apiConfig =
+    { name = "DynamoDB"
+    , version = "20120810"
+    }
 
 
 operationToString : Operation -> String
