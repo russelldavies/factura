@@ -1,8 +1,11 @@
 module Page.Invoice exposing (Model, Msg, init, update, view)
 
 import Api
-import Element exposing (Element, column, text)
+import Date
+import Element exposing (..)
+import Element.Background as Background
 import Element.Border as Border
+import Element.Font as Font
 import Http
 import Invoice exposing (Invoice)
 import Invoice.Item as Item exposing (Item)
@@ -74,7 +77,122 @@ view model =
 
 viewInvoice : Invoice -> Element msg
 viewInvoice invoice =
-    text "invoice"
+    column [ width fill ]
+        [ row [ Font.size 24, Font.heavy, spacing 5 ]
+            [ text "Invoice:"
+            , text <| String.padLeft 7 '0' invoice.number
+            ]
+        , column
+            [ Border.solid
+            , Border.width 1
+            , padding 10
+            , width fill
+            , spacing 20
+            ]
+            [ viewSupplier invoice.supplier
+            , row [ paddingXY 0 50, width fill ]
+                [ viewCustomer invoice.customer
+                , el [ alignRight ] <| viewInvoiceDetails invoice
+                ]
+            , viewItemDetails invoice.items
+            , viewInvoiceAmounts invoice
+            , viewTerms invoice.terms
+            ]
+        ]
+
+
+viewItemDetails items =
+    let
+        header =
+            el
+                [ Background.color (rgb 0.9 0.9 0.9)
+                , Font.heavy
+                ]
+                << text
+    in
+    table []
+        { data = items
+        , columns =
+            [ { header = header "Task"
+              , width = fill
+              , view = .task >> text
+              }
+            , { header = header "Rate"
+              , width = fill
+              , view = .rate >> String.fromFloat >> text
+              }
+            , { header = header "Hours"
+              , width = fill
+              , view = .hours >> String.fromFloat >> text
+              }
+            , { header = header "Sub Total"
+              , width = fill
+              , view = Item.subTotal >> String.fromFloat >> text
+              }
+            , { header = header "Total"
+              , width = fill
+              , view = Item.total >> String.fromFloat >> text
+              }
+            ]
+        }
+
+
+viewInvoiceDetails invoice =
+    column []
+        [ row []
+            [ text "Invoice #"
+            , text <| String.padLeft 7 '0' invoice.number
+            ]
+        , row []
+            [ text "Invoice Date"
+            , text <| Date.toIsoString invoice.issuedAt
+            ]
+        , row [ Background.color (rgb 0.9 0.9 0.9) ]
+            [ el [ Font.heavy ] <| text "Balance Due"
+            , text <| String.fromFloat <| Invoice.total invoice
+            ]
+        ]
+
+
+viewInvoiceAmounts invoice =
+    let
+        line label amount =
+            row [ width fill ] [ text label, text <| String.fromFloat amount ]
+    in
+    column [ alignRight, width (px 200) ]
+        [ line "Subtotal" (Invoice.subTotal invoice)
+        , line "Total" (Invoice.total invoice)
+        , line "Balance Due" (Invoice.total invoice)
+        ]
+
+
+viewSupplier supplier =
+    column [ spacing 5 ]
+        [ text supplier.name
+        , text supplier.email
+        , text supplier.phone
+        , column [] <| List.map text <| String.split "\n" supplier.address
+        , text <| "VAT Number: " ++ supplier.regNum
+        ]
+
+
+viewCustomer customer =
+    column [ spacing 5 ]
+        [ text customer.name
+        , text customer.email
+        , text customer.phone
+        , column [] <| List.map text <| String.split "\n" customer.address
+        , text <| "VAT Number: " ++ customer.taxNum
+        ]
+
+
+viewTerms : String -> Element msg
+viewTerms terms =
+    column []
+        (terms
+            |> String.split "\n"
+            |> List.map text
+        )
 
 
 

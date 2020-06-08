@@ -1,4 +1,4 @@
-module Invoice.Item exposing (Item, decoder)
+module Invoice.Item exposing (Item, decoder, subTotal, total)
 
 import Json.Decode as Decode exposing (Decoder, field)
 import Json.Decode.Extra exposing (parseFloat)
@@ -15,6 +15,18 @@ type alias Item =
     , discountPct : Float
     , taxes : List Tax
     }
+
+
+subTotal : Item -> Float
+subTotal item =
+    item.rate * item.hours
+
+
+total : Item -> Float
+total item =
+    item.taxes
+        |> List.map (\tax -> (1 + tax.rate) * subTotal item)
+        |> List.sum
 
 
 decoder : Decoder Item

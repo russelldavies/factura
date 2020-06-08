@@ -1,4 +1,4 @@
-module Invoice exposing (Invoice, decoder)
+module Invoice exposing (Invoice, decoder, subTotal, total)
 
 import Customer exposing (Customer)
 import Date exposing (Date)
@@ -15,7 +15,7 @@ type alias Invoice =
     { invoiceId : Ulid
     , supplier : Supplier
     , customer : Customer
-    , number : Int
+    , number : String
     , issuedAt : Date
     , terms : String
     , notes : String
@@ -25,13 +25,25 @@ type alias Invoice =
     }
 
 
+total : Invoice -> Float
+total invoice =
+    List.map Item.subTotal invoice.items
+        |> List.sum
+
+
+subTotal : Invoice -> Float
+subTotal invoice =
+    List.map Item.total invoice.items
+        |> List.sum
+
+
 decoder : Decoder Invoice
 decoder =
     Decode.succeed Invoice
         |> requiredAt [ "InvoiceId", "S" ] Ulid.decode
         |> requiredAt [ "Supplier", "M" ] Supplier.decoder
         |> requiredAt [ "Customer", "M" ] Customer.decoder
-        |> requiredAt [ "Number", "N" ] parseInt
+        |> requiredAt [ "Number", "N" ] Decode.string
         |> requiredAt [ "IssuedAt", "S" ] dateDecoder
         |> requiredAt [ "Terms", "S" ] Decode.string
         |> requiredAt [ "Notes", "S" ] Decode.string
