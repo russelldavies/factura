@@ -6,6 +6,7 @@
     "elm-version": "0.19.1",
     "dependencies": {
         "direct": {
+            "Chadtech/elm-money": "2.0.4",
             "NoRedInk/elm-json-decode-pipeline": "1.0.0",
             "elm/browser": "1.0.2",
             "elm/bytes": "1.0.8",
