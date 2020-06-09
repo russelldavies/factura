@@ -1,15 +1,17 @@
-module Supplier exposing (Supplier, decoder)
+module Invoice.Supplier exposing (Supplier, decoder)
 
 import Json.Decode as Decode exposing (Decoder)
-import Json.Decode.Pipeline exposing (requiredAt)
-import Json.Encode as Encode
+import Json.Decode.Pipeline exposing (hardcoded, optionalAt, requiredAt)
 import Tax
-import Ulid exposing (Ulid)
+
+
+
+-- This exists separately to other Supplier module because it's a slow changing
+-- dimension.
 
 
 type alias Supplier =
-    { supplierId : Ulid
-    , company : Maybe String
+    { company : Maybe String
     , name : Maybe String
     , address : String
     , email : String
@@ -21,9 +23,8 @@ type alias Supplier =
 decoder : Decoder Supplier
 decoder =
     Decode.succeed Supplier
-        |> requiredAt [ "SupplierId", "S" ] Ulid.decode
-        |> requiredAt [ "Company", "S" ] (Decode.nullable Decode.string)
-        |> requiredAt [ "Name", "S" ] (Decode.nullable Decode.string)
+        |> optionalAt [ "Company", "S" ] (Decode.nullable Decode.string) Nothing
+        |> optionalAt [ "Name", "S" ] (Decode.nullable Decode.string) Nothing
         |> requiredAt [ "Address", "S" ] Decode.string
         |> requiredAt [ "Email", "S" ] Decode.string
         |> requiredAt [ "Phone", "S" ] (Decode.nullable Decode.string)

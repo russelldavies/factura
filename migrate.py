@@ -40,8 +40,8 @@ def read_line_items(vat_rate, invoice_num):
         for row in csvreader:
             line_items.append({
                 'description': row[1],
-                'rate': float(row[2]),
-                'hours': float(row[3]),
+                'rate': {'cost': float(row[2]), 'unit': 'hour'},
+                'quantity': float(row[3]),
                 'discount_pct': 0,
                 'taxes': [{'name': 'VAT', 'rate': vat_rate}],
             })
@@ -77,7 +77,7 @@ def create_customer(record, date=None):
                 'Put': {
                     'TableName': table_name,
                     'Item': item,
-                    #'ConditionExpression': 'attribute_not_exists(PK)'
+                    'ConditionExpression': 'attribute_not_exists(PK)'
                 },
             },
             {
@@ -87,7 +87,7 @@ def create_customer(record, date=None):
                         'PK': { 'S': '{}EMAIL#{}'.format(item_type.upper(), record['email']) },
                         'SK': { 'S': '{}EMAIL#{}'.format(item_type.upper(), record['email']) },
                     },
-                    #'ConditionExpression': 'attribute_not_exists(PK)'
+                    'ConditionExpression': 'attribute_not_exists(PK)'
                 },
             },
         ]
@@ -113,12 +113,30 @@ def create_invoice(customer_id, invoice):
             'GSI1SK': gsi1sk,
             'Type': item_type,
             'InvoiceId': str(invoice_id),
+            'CustomerId': str(customer_id),
         }, False),
         **dict_to_item(invoice),
     }
-    client.put_item(
-        TableName=table_name,
-        Item=item,
+    client.transact_write_items(
+        TransactItems=[
+            {
+                'Put': {
+                    'TableName': table_name,
+                    'Item': item,
+                    'ConditionExpression': 'attribute_not_exists(PK)'
+                },
+            },
+            {
+                'Put': {
+                    'TableName': table_name,
+                    'Item': {
+                        'PK': { 'S': '{}NUMBER#{}'.format(item_type.upper(), invoice['number']) },
+                        'SK': { 'S': '{}NUMBER#{}'.format(item_type.upper(), invoice['number']) },
+                    },
+                    'ConditionExpression': 'attribute_not_exists(PK)'
+                },
+            },
+        ]
     )
     return invoice_id
 

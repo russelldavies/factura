@@ -8,9 +8,12 @@ import Element.Border as Border
 import Element.Font as Font
 import Http
 import Invoice exposing (Invoice)
-import Invoice.Item as Item exposing (Item)
+import Invoice.Customer as Customer exposing (Customer)
+import Invoice.LineItem as LineItem exposing (LineItem)
+import Invoice.Supplier as Supplier exposing (Supplier)
 import Json.Decode as JD exposing (Decoder)
 import Json.Encode as Encode
+import Money exposing (Currency)
 import Page
 import RemoteData exposing (RemoteData(..), WebData)
 import Result.Extra exposing (combine)
@@ -52,13 +55,23 @@ update msg model =
             ( response, Cmd.none )
 
 
+invoiceNum invoice =
+    String.padLeft 7 '0' invoice.number
+
+
 
 -- VIEW --
 
 
 view : Model -> Page.Document Msg
 view model =
-    { title = "Invoice"
+    { title =
+        case model of
+            Success invoice ->
+                "Invoice " ++ invoiceNum invoice
+
+            _ ->
+                "Invoice"
     , content =
         case model of
             NotAsked ->
@@ -68,7 +81,7 @@ view model =
                 text "Loading..."
 
             Failure err ->
-                text "Something failed."
+                text "Something failed! We've been notified and will be right on it."
 
             Success invoice ->
                 viewInvoice invoice
@@ -80,7 +93,7 @@ viewInvoice invoice =
     column [ width fill ]
         [ row [ Font.size 24, Font.heavy, spacing 5 ]
             [ text "Invoice:"
-            , text <| String.padLeft 7 '0' invoice.number
+            , text << invoiceNum <| invoice
             ]
         , column
             [ Border.solid
@@ -94,14 +107,15 @@ viewInvoice invoice =
                 [ viewCustomer invoice.customer
                 , el [ alignRight ] <| viewInvoiceDetails invoice
                 ]
-            , viewItemDetails invoice.items
+            , viewItemDetails invoice.currency invoice.lineItems
             , viewInvoiceAmounts invoice
             , viewTerms invoice.terms
             ]
         ]
 
 
-viewItemDetails items =
+viewItemDetails : Currency -> List LineItem -> Element msg
+viewItemDetails currency items =
     let
         header =
             el
@@ -113,25 +127,27 @@ viewItemDetails items =
     table []
         { data = items
         , columns =
-            [ { header = header "Task"
-              , width = fill
-              , view = .task >> text
+            [ { header = header "Description"
+              , width = fillPortion 6
+              , view = .description >> text >> List.singleton >> paragraph []
               }
-            , { header = header "Rate"
+            , { header = header ("Rate (" ++ currency.symbol ++ ")")
               , width = fill
-              , view = .rate >> String.fromFloat >> text
+              , view = .rate >> .cost >> String.fromFloat >> text
               }
-            , { header = header "Hours"
+            , { header = header "Quantity"
               , width = fill
-              , view = .hours >> String.fromFloat >> text
+              , view =
+                    \lineItem ->
+                        text
+                            (String.fromFloat lineItem.quantity
+                                ++ " "
+                                ++ lineItem.rate.unit
+                            )
               }
-            , { header = header "Sub Total"
+            , { header = header ("Line Total (" ++ currency.symbol ++ ")")
               , width = fill
-              , view = Item.subTotal >> String.fromFloat >> text
-              }
-            , { header = header "Total"
-              , width = fill
-              , view = Item.total >> String.fromFloat >> text
+              , view = LineItem.subTotal >> String.fromFloat >> text
               }
             ]
         }
@@ -141,7 +157,7 @@ viewInvoiceDetails invoice =
     column []
         [ row []
             [ text "Invoice #"
-            , text <| String.padLeft 7 '0' invoice.number
+            , text << invoiceNum <| invoice
             ]
         , row []
             [ text "Invoice Date"
@@ -166,23 +182,26 @@ viewInvoiceAmounts invoice =
         ]
 
 
+viewSupplier : Supplier -> Element msg
 viewSupplier supplier =
     column [ spacing 5 ]
-        [ text supplier.name
+        [ Maybe.map text supplier.company |> Maybe.withDefault none
+        , Maybe.map text supplier.name |> Maybe.withDefault none
         , text supplier.email
-        , text supplier.phone
+        , Maybe.map text supplier.phone |> Maybe.withDefault none
         , column [] <| List.map text <| String.split "\n" supplier.address
-        , text <| "VAT Number: " ++ supplier.regNum
+        , row [] [ text supplier.taxNumber.name, text supplier.taxNumber.number ]
         ]
 
 
+viewCustomer : Customer -> Element msg
 viewCustomer customer =
     column [ spacing 5 ]
-        [ text customer.name
+        [ Maybe.map text customer.company |> Maybe.withDefault none
+        , Maybe.map text customer.name |> Maybe.withDefault none
         , text customer.email
-        , text customer.phone
+        , Maybe.map text customer.phone |> Maybe.withDefault none
         , column [] <| List.map text <| String.split "\n" customer.address
-        , text <| "VAT Number: " ++ customer.taxNum
         ]
 
 
@@ -213,15 +232,15 @@ decoder =
                             (List.range 1 (count - 1)
                                 |> List.map
                                     (\i ->
-                                        JD.decodeValue (JD.index i Item.decoder) items
+                                        JD.decodeValue (JD.index i LineItem.decoder) items
                                     )
                             )
                                 |> combine
                                 |> Result.map
                                     (\invoiceItems ->
-                                        JD.succeed { invoice | items = invoiceItems }
+                                        JD.succeed { invoice | lineItems = invoiceItems }
                                     )
-                                |> Result.withDefault (JD.fail "Invalid invoice item")
+                                |> Result.withDefault (JD.fail "Invalid line item")
                         )
                     |> Result.withDefault (JD.fail "Invalid invoice")
             )

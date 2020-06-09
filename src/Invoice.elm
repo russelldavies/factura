@@ -1,13 +1,15 @@
 module Invoice exposing (Invoice, decoder, subTotal, total)
 
-import Customer exposing (Customer)
 import Date exposing (Date)
-import Invoice.Item as Item exposing (Item)
+import Invoice.Customer as Customer exposing (Customer)
+import Invoice.LineItem as Item exposing (LineItem)
+import Invoice.Supplier as Supplier exposing (Supplier)
 import Json.Decode as Decode exposing (Decoder, field)
 import Json.Decode.Extra exposing (parseInt)
 import Json.Decode.Pipeline exposing (hardcoded, requiredAt)
 import Json.Encode as Encode
-import Supplier exposing (Supplier)
+import Money exposing (Currency)
+import Tax
 import Ulid exposing (Ulid)
 
 
@@ -20,20 +22,21 @@ type alias Invoice =
     , terms : String
     , notes : String
     , emailed : Bool
-    , paid : Bool
-    , items : List Item
+    , paidOn : Date
+    , currency : Currency
+    , lineItems : List LineItem
     }
 
 
 total : Invoice -> Float
 total invoice =
-    List.map Item.subTotal invoice.items
+    List.map Item.subTotal invoice.lineItems
         |> List.sum
 
 
 subTotal : Invoice -> Float
 subTotal invoice =
-    List.map Item.total invoice.items
+    List.map Item.total invoice.lineItems
         |> List.sum
 
 
@@ -48,7 +51,8 @@ decoder =
         |> requiredAt [ "Terms", "S" ] Decode.string
         |> requiredAt [ "Notes", "S" ] Decode.string
         |> requiredAt [ "Emailed", "BOOL" ] Decode.bool
-        |> requiredAt [ "Paid", "BOOL" ] Decode.bool
+        |> requiredAt [ "PaidOn", "S" ] dateDecoder
+        |> requiredAt [ "Currency", "S" ] currencyDecoder
         |> hardcoded []
 
 
@@ -63,4 +67,18 @@ dateDecoder =
 
                     Err err ->
                         Decode.fail err
+            )
+
+
+currencyDecoder : Decoder Currency
+currencyDecoder =
+    Decode.string
+        |> Decode.andThen
+            (\s ->
+                case Money.currencyFromString s of
+                    Just currency ->
+                        Decode.succeed currency
+
+                    Nothing ->
+                        Decode.fail "Invalid currency"
             )
