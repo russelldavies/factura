@@ -1,4 +1,4 @@
-module Invoice exposing (Invoice, decoder, subTotal, taxes, total)
+module Invoice exposing (Invoice, decoder, formatNumber, subTotal, taxes, total)
 
 import Dict exposing (Dict)
 import Element.Font as Font
@@ -59,6 +59,13 @@ total invoice =
             taxes invoice |> List.map Tuple.second |> List.sum
     in
     subTotal invoice + taxTotal
+
+
+formatNumber : Invoice -> String
+formatNumber invoice =
+    invoice.number
+        |> String.fromInt
+        |> String.padLeft 7 '0'
 
 
 decoder : Decoder Invoice

@@ -77,6 +77,7 @@ view model =
     }
 
 
+viewClient : Client -> Element msg
 viewClient client =
     column []
         [ el [ Font.size 24 ] <| text "Client Details"
@@ -88,6 +89,7 @@ viewClient client =
         ]
 
 
+viewInvoices : List Invoice -> Element msg
 viewInvoices invoices =
     column [ width fill ]
         [ el [ Font.size 24 ] <| text "Invoices"
@@ -100,7 +102,7 @@ viewInvoices invoices =
                         \invoice ->
                             link []
                                 { url = Route.toString (Route.Invoice invoice.invoiceId)
-                                , label = el [ Font.underline ] <| text <| String.fromInt invoice.number
+                                , label = el [ Font.underline ] <| text <| Invoice.formatNumber invoice
                                 }
                   }
                 , { header = text "Issued On"

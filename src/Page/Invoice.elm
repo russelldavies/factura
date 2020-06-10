@@ -63,7 +63,7 @@ view model =
     { title =
         case model of
             Success invoice ->
-                "Invoice " ++ invoiceNum invoice
+                "Invoice " ++ Invoice.formatNumber invoice
 
             _ ->
                 "Invoice"
@@ -94,7 +94,7 @@ viewInvoice invoice =
     column [ width fill, padding 10 ]
         [ row [ Font.size 24, Font.heavy, spacing 5 ]
             [ text "Invoice:"
-            , text << invoiceNum <| invoice
+            , text << Invoice.formatNumber <| invoice
             ]
         , column
             [ Border.solid
@@ -166,7 +166,7 @@ viewInvoiceDetails invoice =
             row [ width fill, spacing 80 ] [ text heading, el [ alignRight ] e ]
     in
     column []
-        [ line "Invoice #" (text <| invoiceNum invoice)
+        [ line "Invoice #" (text <| Invoice.formatNumber invoice)
         , line "Issued On" (text <| formatDate invoice.issuedOn)
         , line "Paid On"
             (case invoice.paidOn of
@@ -261,12 +261,6 @@ viewNotes notes =
     else
         (el [ Font.heavy ] (text "Notes") :: (notes |> String.split "\n" |> List.map text))
             |> column [ alignTop, alignRight ]
-
-
-invoiceNum invoice =
-    invoice.number
-        |> String.fromInt
-        |> String.padLeft 7 '0'
 
 
 formatDate =
