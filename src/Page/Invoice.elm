@@ -19,6 +19,7 @@ import Money exposing (Currency)
 import Page
 import RemoteData exposing (RemoteData(..), WebData)
 import Result.Extra exposing (combine)
+import Route
 import Task exposing (Task)
 import Ulid exposing (Ulid)
 
@@ -43,16 +44,12 @@ init invoiceId =
 
 
 type Msg
-    = NoOp
-    | InvoiceResponse (WebData Invoice)
+    = InvoiceResponse (WebData Invoice)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        NoOp ->
-            ( model, Cmd.none )
-
         InvoiceResponse response ->
             ( response, Cmd.none )
 
@@ -79,11 +76,16 @@ view model =
                 text "Loading..."
 
             Failure err ->
-                Debug.log (Debug.toString err) <|
-                    text "Something failed! We've been notified and will be right on it."
+                text "Something failed! We've been notified and will be right on it."
 
             Success invoice ->
-                viewInvoice invoice
+                column [ width fill ]
+                    [ viewInvoice invoice
+                    , link []
+                        { url = Route.toString (Route.Client invoice.clientId)
+                        , label = text "View all invoices"
+                        }
+                    ]
     }
 
 
@@ -240,6 +242,7 @@ viewCustomer customer =
         ]
 
 
+viewAddress : String -> Element msg
 viewAddress address =
     column [] <| List.map text <| String.split "\n" address
 
@@ -258,6 +261,16 @@ viewNotes notes =
     else
         (el [ Font.heavy ] (text "Notes") :: (notes |> String.split "\n" |> List.map text))
             |> column [ alignTop, alignRight ]
+
+
+invoiceNum invoice =
+    invoice.number
+        |> String.fromInt
+        |> String.padLeft 7 '0'
+
+
+formatDate =
+    Iso8601.fromTime >> String.left 10
 
 
 
@@ -298,7 +311,7 @@ fetchInvoices invoiceId =
             "INVOICE#" ++ Ulid.toString invoiceId
     in
     { operation = Api.Query
-    , indexName = "GSI1"
+    , indexName = Just "GSI1"
     , keyConditionExpression = "GSI1PK = :pk"
     , expressionAttributeValues =
         Encode.object
@@ -310,13 +323,3 @@ fetchInvoices invoiceId =
     , decoder = decoder
     }
         |> Api.request
-
-
-invoiceNum invoice =
-    invoice.number
-        |> String.fromInt
-        |> String.padLeft 7 '0'
-
-
-formatDate =
-    Iso8601.fromTime >> String.left 10

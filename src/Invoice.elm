@@ -17,7 +17,8 @@ import Ulid exposing (Ulid)
 
 
 type alias Invoice =
-    { invoiceId : Ulid
+    { clientId : Ulid
+    , invoiceId : Ulid
     , supplier : Supplier
     , customer : Customer
     , number : Int
@@ -61,6 +62,7 @@ total invoice =
 decoder : Decoder Invoice
 decoder =
     Decode.succeed Invoice
+        |> requiredAt [ "ClientId", "S" ] Ulid.decode
         |> requiredAt [ "InvoiceId", "S" ] Ulid.decode
         |> requiredAt [ "Supplier", "M" ] Supplier.decoder
         |> requiredAt [ "Customer", "M" ] Customer.decoder

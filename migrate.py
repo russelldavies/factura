@@ -26,7 +26,6 @@ def load():
             invoice_id = create_invoice(client_id, supplier, customer, row)
             line_items = process_line_items(invoice_id, row)
             print('Created invoice ', invoice_id)
-            break
 
 
 def process_line_items(invoice_id, invoice_row):

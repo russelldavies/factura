@@ -20,7 +20,7 @@ type Operation
 
 request :
     { operation : Operation
-    , indexName : String
+    , indexName : Maybe String
     , keyConditionExpression : String
     , expressionAttributeValues : Encode.Value
     , decoder : Decode.Decoder a
@@ -51,18 +51,27 @@ request opts =
 
 buildBody :
     { r
-        | indexName : String
+        | indexName : Maybe String
         , keyConditionExpression : String
         , expressionAttributeValues : Encode.Value
     }
     -> Encode.Value
 buildBody { indexName, keyConditionExpression, expressionAttributeValues } =
-    Encode.object
-        [ ( "TableName", Encode.string Constants.tableName )
-        , ( "IndexName", Encode.string indexName )
-        , ( "KeyConditionExpression", Encode.string keyConditionExpression )
-        , ( "ExpressionAttributeValues", expressionAttributeValues )
-        ]
+    case indexName of
+        Just indexName_ ->
+            Encode.object
+                [ ( "TableName", Encode.string Constants.tableName )
+                , ( "IndexName", Encode.string indexName_ )
+                , ( "KeyConditionExpression", Encode.string keyConditionExpression )
+                , ( "ExpressionAttributeValues", expressionAttributeValues )
+                ]
+
+        Nothing ->
+            Encode.object
+                [ ( "TableName", Encode.string Constants.tableName )
+                , ( "KeyConditionExpression", Encode.string keyConditionExpression )
+                , ( "ExpressionAttributeValues", expressionAttributeValues )
+                ]
 
 
 service : AWS.Service.Service
