@@ -18,11 +18,13 @@ view { title, content } =
     { title = title ++ " - Factura"
     , body =
         [ Element.layout
-            [ padding 20
-            , spacing 10
-            , Font.size 14
+            [ Font.size 14
             , Font.family
-                [ Font.typeface "Source Sans Pro"
+                [ Font.external
+                    { name = "Source Sans Pro"
+                    , url = "https://fonts.googleapis.com/css2?family=Source+Sans+Pro&display=swap"
+                    }
+                , Font.typeface "Source Sans Pro"
                 , Font.sansSerif
                 ]
             ]

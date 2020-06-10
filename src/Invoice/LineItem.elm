@@ -1,4 +1,4 @@
-module Invoice.LineItem exposing (LineItem, decoder, subTotal, total)
+module Invoice.LineItem exposing (LineItem, decoder, taxes, total)
 
 import Json.Decode as Decode exposing (Decoder, field)
 import Json.Decode.Extra exposing (parseFloat)
@@ -24,16 +24,20 @@ type alias Rate =
     }
 
 
-subTotal : LineItem -> Float
-subTotal item =
+total : LineItem -> Float
+total item =
     item.rate.cost * item.quantity
 
 
-total : LineItem -> Float
-total item =
-    item.taxes
-        |> List.map (\tax -> (1 + tax.rate) * subTotal item)
-        |> List.sum
+taxes : LineItem -> List ( String, Float )
+taxes lineItem =
+    lineItem.taxes
+        |> List.map
+            (\{ name, rate } ->
+                ( name ++ " " ++ String.fromFloat (rate * 100) ++ "%"
+                , rate * total lineItem
+                )
+            )
 
 
 decoder : Decoder LineItem

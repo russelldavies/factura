@@ -8,14 +8,14 @@ import Url.Parser as Parser exposing ((</>), Parser, oneOf, s, string)
 
 type Route
     = Invoice Ulid
-    | Customer Ulid
+    | Client Ulid
 
 
 parser : Parser (Route -> a) a
 parser =
     oneOf
         [ Parser.map Invoice (s "invoice" </> ulidParser)
-        , Parser.map Customer (s "customer" </> ulidParser)
+        , Parser.map Client (s "client" </> ulidParser)
         ]
 
 
@@ -30,8 +30,8 @@ toString route =
         Invoice invoiceId ->
             absolute [ "invoice", Ulid.toString invoiceId ] []
 
-        Customer customerId ->
-            absolute [ "customer", Ulid.toString customerId ] []
+        Client clientId ->
+            absolute [ "client", Ulid.toString clientId ] []
 
 
 fromUrl : Url -> Maybe Route

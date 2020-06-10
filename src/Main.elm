@@ -5,7 +5,7 @@ import Browser.Navigation as Nav
 import Html exposing (Html, div, h1, img, text)
 import Html.Attributes exposing (src)
 import Page
-import Page.Customer as Customer
+import Page.Client as Client
 import Page.Invoice as Invoice
 import Page.NotFound as NotFound
 import Route exposing (Route)
@@ -26,7 +26,7 @@ type alias Model =
 type Page
     = NotFound
     | Invoice Invoice.Model
-    | Customer Customer.Model
+    | Client Client.Model
 
 
 init : () -> Url -> Nav.Key -> ( Model, Cmd Msg )
@@ -52,7 +52,7 @@ type Msg
 
 type PageMsg
     = InvoiceMsg Invoice.Msg
-    | CustomerMsg Customer.Msg
+    | ClientMsg Client.Msg
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -90,9 +90,9 @@ updatePage pageMsg page =
             Invoice.update subMsg pageModel
                 |> mapPage Invoice InvoiceMsg
 
-        ( CustomerMsg subMsg, Customer pageModel ) ->
-            Customer.update subMsg pageModel
-                |> mapPage Customer CustomerMsg
+        ( ClientMsg subMsg, Client pageModel ) ->
+            Client.update subMsg pageModel
+                |> mapPage Client ClientMsg
 
         _ ->
             ( NotFound, Cmd.none )
@@ -108,9 +108,9 @@ initPage maybeRoute =
             Invoice.init invoiceId
                 |> mapPage Invoice InvoiceMsg
 
-        Just (Route.Customer customerId) ->
-            Customer.init customerId
-                |> mapPage Customer CustomerMsg
+        Just (Route.Client customerId) ->
+            Client.init customerId
+                |> mapPage Client ClientMsg
 
 
 mapPage :
@@ -147,8 +147,8 @@ view model =
         Invoice invoice ->
             frame InvoiceMsg (Invoice.view invoice)
 
-        Customer customer ->
-            frame CustomerMsg (Customer.view customer)
+        Client customer ->
+            frame ClientMsg (Client.view customer)
 
 
 

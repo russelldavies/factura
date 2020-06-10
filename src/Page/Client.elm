@@ -1,6 +1,6 @@
-module Page.Customer exposing (Model, Msg, init, update, view)
+module Page.Client exposing (Model, Msg, init, update, view)
 
-import Customer exposing (Customer)
+import Client exposing (Client)
 import Element exposing (Element)
 import Page
 import Ulid exposing (Ulid)
@@ -11,7 +11,7 @@ import Ulid exposing (Ulid)
 
 
 type alias Model =
-    Maybe Customer
+    Maybe Client
 
 
 init : Ulid -> ( Model, Cmd Msg )
@@ -40,6 +40,6 @@ update msg model =
 
 view : Model -> Page.Document msg
 view model =
-    { title = "Customer"
-    , content = Element.text "customer page"
+    { title = "Client"
+    , content = Element.text "client page"
     }

@@ -1,15 +1,18 @@
-module Invoice exposing (Invoice, decoder, subTotal, total)
+module Invoice exposing (Invoice, decoder, subTotal, taxes, total)
 
-import Date exposing (Date)
+import Dict exposing (Dict)
+import Element.Font as Font
 import Invoice.Customer as Customer exposing (Customer)
-import Invoice.LineItem as Item exposing (LineItem)
+import Invoice.LineItem as LineItem exposing (LineItem)
 import Invoice.Supplier as Supplier exposing (Supplier)
+import Iso8601
 import Json.Decode as Decode exposing (Decoder, field)
 import Json.Decode.Extra exposing (parseInt)
-import Json.Decode.Pipeline exposing (hardcoded, requiredAt)
+import Json.Decode.Pipeline exposing (hardcoded, optionalAt, requiredAt)
 import Json.Encode as Encode
 import Money exposing (Currency)
 import Tax
+import Time exposing (Posix)
 import Ulid exposing (Ulid)
 
 
@@ -17,26 +20,41 @@ type alias Invoice =
     { invoiceId : Ulid
     , supplier : Supplier
     , customer : Customer
-    , number : String
-    , issuedAt : Date
+    , number : Int
+    , issuedOn : Posix
+    , paidOn : Maybe Posix
     , terms : String
     , notes : String
     , emailed : Bool
-    , paidOn : Date
     , currency : Currency
     , lineItems : List LineItem
     }
 
 
-total : Invoice -> Float
-total invoice =
-    List.map Item.subTotal invoice.lineItems
+subTotal : Invoice -> Float
+subTotal invoice =
+    invoice.lineItems
+        |> List.map LineItem.total
         |> List.sum
 
 
-subTotal : Invoice -> Float
-subTotal invoice =
-    List.map Item.total invoice.lineItems
+taxes : Invoice -> List ( String, Float )
+taxes invoice =
+    invoice.lineItems
+        |> List.map LineItem.taxes
+        |> List.concat
+        |> List.foldr
+            (\( taxName, amount ) acc ->
+                Dict.update taxName (Maybe.map ((+) amount) >> Maybe.withDefault amount >> Just) acc
+            )
+            Dict.empty
+        |> Dict.toList
+
+
+total : Invoice -> Float
+total invoice =
+    invoice.lineItems
+        |> List.map LineItem.total
         |> List.sum
 
 
@@ -46,28 +64,14 @@ decoder =
         |> requiredAt [ "InvoiceId", "S" ] Ulid.decode
         |> requiredAt [ "Supplier", "M" ] Supplier.decoder
         |> requiredAt [ "Customer", "M" ] Customer.decoder
-        |> requiredAt [ "Number", "N" ] Decode.string
-        |> requiredAt [ "IssuedAt", "S" ] dateDecoder
+        |> requiredAt [ "Number", "N" ] parseInt
+        |> requiredAt [ "IssuedOn", "S" ] Iso8601.decoder
+        |> optionalAt [ "PaidOn", "S" ] (Decode.nullable Iso8601.decoder) Nothing
         |> requiredAt [ "Terms", "S" ] Decode.string
         |> requiredAt [ "Notes", "S" ] Decode.string
         |> requiredAt [ "Emailed", "BOOL" ] Decode.bool
-        |> requiredAt [ "PaidOn", "S" ] dateDecoder
         |> requiredAt [ "Currency", "S" ] currencyDecoder
         |> hardcoded []
-
-
-dateDecoder : Decoder Date
-dateDecoder =
-    Decode.string
-        |> Decode.andThen
-            (\s ->
-                case Date.fromIsoString s of
-                    Ok date ->
-                        Decode.succeed date
-
-                    Err err ->
-                        Decode.fail err
-            )
 
 
 currencyDecoder : Decoder Currency

@@ -1,16 +1,18 @@
 module Page.Invoice exposing (Model, Msg, init, update, view)
 
 import Api
-import Date
 import Element exposing (..)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
+import FormatNumber exposing (format)
+import FormatNumber.Locales exposing (usLocale)
 import Http
 import Invoice exposing (Invoice)
 import Invoice.Customer as Customer exposing (Customer)
 import Invoice.LineItem as LineItem exposing (LineItem)
 import Invoice.Supplier as Supplier exposing (Supplier)
+import Iso8601
 import Json.Decode as JD exposing (Decoder)
 import Json.Encode as Encode
 import Money exposing (Currency)
@@ -55,10 +57,6 @@ update msg model =
             ( response, Cmd.none )
 
 
-invoiceNum invoice =
-    String.padLeft 7 '0' invoice.number
-
-
 
 -- VIEW --
 
@@ -81,7 +79,8 @@ view model =
                 text "Loading..."
 
             Failure err ->
-                text "Something failed! We've been notified and will be right on it."
+                Debug.log (Debug.toString err) <|
+                    text "Something failed! We've been notified and will be right on it."
 
             Success invoice ->
                 viewInvoice invoice
@@ -90,7 +89,7 @@ view model =
 
 viewInvoice : Invoice -> Element msg
 viewInvoice invoice =
-    column [ width fill ]
+    column [ width fill, padding 10 ]
         [ row [ Font.size 24, Font.heavy, spacing 5 ]
             [ text "Invoice:"
             , text << invoiceNum <| invoice
@@ -99,17 +98,20 @@ viewInvoice invoice =
             [ Border.solid
             , Border.width 1
             , padding 10
-            , width fill
             , spacing 20
+            , width fill
             ]
             [ viewSupplier invoice.supplier
-            , row [ paddingXY 0 50, width fill ]
+            , row [ width fill ]
                 [ viewCustomer invoice.customer
-                , el [ alignRight ] <| viewInvoiceDetails invoice
+                , el [ alignTop, alignRight ] <| viewInvoiceDetails invoice
                 ]
             , viewItemDetails invoice.currency invoice.lineItems
             , viewInvoiceAmounts invoice
-            , viewTerms invoice.terms
+            , row [ width fill ]
+                [ viewTerms invoice.terms
+                , viewNotes invoice.notes
+                ]
             ]
         ]
 
@@ -117,101 +119,145 @@ viewInvoice invoice =
 viewItemDetails : Currency -> List LineItem -> Element msg
 viewItemDetails currency items =
     let
-        header =
-            el
-                [ Background.color (rgb 0.9 0.9 0.9)
-                , Font.heavy
-                ]
-                << text
+        header attr =
+            el [ Background.color (rgb 0.9 0.9 0.9), Font.heavy ] << el [ attr ] << text
+
+        quantityText lineItem =
+            String.fromFloat lineItem.quantity
+                ++ " "
+                ++ lineItem.rate.unit
+
+        cell s =
+            el [] (el [ alignRight ] <| text s)
     in
-    table []
+    table
+        [ spacingXY 0 10
+        , paddingEach { top = 0, bottom = 15, left = 0, right = 0 }
+        , Border.width 1
+        , Border.color (rgba 0 0 0 0.1)
+        ]
         { data = items
         , columns =
-            [ { header = header "Description"
+            [ { header = header alignLeft "Description"
               , width = fillPortion 6
               , view = .description >> text >> List.singleton >> paragraph []
               }
-            , { header = header ("Rate (" ++ currency.symbol ++ ")")
+            , { header = header alignRight ("Rate (" ++ currency.symbol ++ ")")
               , width = fill
-              , view = .rate >> .cost >> String.fromFloat >> text
+              , view = .rate >> .cost >> format usLocale >> cell
               }
-            , { header = header "Quantity"
+            , { header = header alignRight "Quantity"
               , width = fill
-              , view =
-                    \lineItem ->
-                        text
-                            (String.fromFloat lineItem.quantity
-                                ++ " "
-                                ++ lineItem.rate.unit
-                            )
+              , view = quantityText >> cell
               }
-            , { header = header ("Line Total (" ++ currency.symbol ++ ")")
+            , { header = header alignRight ("Line Total (" ++ currency.symbol ++ ")")
               , width = fill
-              , view = LineItem.subTotal >> String.fromFloat >> text
+              , view = LineItem.total >> format usLocale >> cell
               }
             ]
         }
 
 
 viewInvoiceDetails invoice =
+    let
+        line heading e =
+            row [ width fill, spacing 80 ] [ text heading, el [ alignRight ] e ]
+    in
     column []
-        [ row []
-            [ text "Invoice #"
-            , text << invoiceNum <| invoice
-            ]
-        , row []
-            [ text "Invoice Date"
-            , text <| Date.toIsoString invoice.issuedAt
-            ]
-        , row [ Background.color (rgb 0.9 0.9 0.9) ]
-            [ el [ Font.heavy ] <| text "Balance Due"
-            , text <| String.fromFloat <| Invoice.total invoice
-            ]
+        [ line "Invoice #" (text <| invoiceNum invoice)
+        , line "Issued On" (text <| formatDate invoice.issuedOn)
+        , line "Paid On"
+            (case invoice.paidOn of
+                Just date ->
+                    text <| formatDate date
+
+                Nothing ->
+                    el [ Font.color (rgb 1 0 0) ] <| text "Unpaid"
+            )
         ]
 
 
 viewInvoiceAmounts invoice =
     let
         line label amount =
-            row [ width fill ] [ text label, text <| String.fromFloat amount ]
+            row [ width fill, spacing 80 ]
+                [ el [ Font.heavy ] <| text label
+                , el [ Font.heavy, alignRight ] <| text <| format usLocale amount
+                ]
+
+        taxLine label amount =
+            row [ width fill, spacing 80 ]
+                [ el [] <| text label
+                , el [ alignRight ] <| text <| format usLocale amount
+                ]
+
+        balanceDue =
+            if invoice.paidOn == Nothing then
+                Invoice.total invoice
+
+            else
+                0
     in
-    column [ alignRight, width (px 200) ]
+    column [ alignRight ]
         [ line "Subtotal" (Invoice.subTotal invoice)
+        , column [ width fill ] <|
+            List.map
+                (\( taxName, amount ) -> taxLine taxName amount)
+                (Invoice.taxes invoice)
         , line "Total" (Invoice.total invoice)
-        , line "Balance Due" (Invoice.total invoice)
+        , row
+            [ width fill
+            , spacing 80
+            , Background.color (rgb 0.9 0.9 0.9)
+            ]
+            [ el [ Font.heavy ] <| text ("Balance Due (" ++ invoice.currency.code ++ ")")
+            , el [ alignRight ] <| text <| (invoice.currency.symbol ++ format usLocale balanceDue)
+            ]
         ]
 
 
 viewSupplier : Supplier -> Element msg
 viewSupplier supplier =
-    column [ spacing 5 ]
+    column []
         [ Maybe.map text supplier.company |> Maybe.withDefault none
         , Maybe.map text supplier.name |> Maybe.withDefault none
-        , text supplier.email
-        , Maybe.map text supplier.phone |> Maybe.withDefault none
-        , column [] <| List.map text <| String.split "\n" supplier.address
-        , row [] [ text supplier.taxNumber.name, text supplier.taxNumber.number ]
+        , viewAddress supplier.address
+        , row [ Font.heavy, spacing 5 ]
+            [ text supplier.taxNumber.name
+            , text supplier.taxNumber.number
+            ]
         ]
 
 
 viewCustomer : Customer -> Element msg
 viewCustomer customer =
-    column [ spacing 5 ]
+    column []
         [ Maybe.map text customer.company |> Maybe.withDefault none
         , Maybe.map text customer.name |> Maybe.withDefault none
         , text customer.email
         , Maybe.map text customer.phone |> Maybe.withDefault none
-        , column [] <| List.map text <| String.split "\n" customer.address
+        , viewAddress customer.address
         ]
+
+
+viewAddress address =
+    column [] <| List.map text <| String.split "\n" address
 
 
 viewTerms : String -> Element msg
 viewTerms terms =
-    column []
-        (terms
-            |> String.split "\n"
-            |> List.map text
-        )
+    (el [ Font.heavy ] (text "Terms") :: (terms |> String.split "\n" |> List.map text))
+        |> column [ alignTop ]
+
+
+viewNotes : String -> Element msg
+viewNotes notes =
+    if String.isEmpty notes then
+        none
+
+    else
+        (el [ Font.heavy ] (text "Notes") :: (notes |> String.split "\n" |> List.map text))
+            |> column [ alignTop, alignRight ]
 
 
 
@@ -225,24 +271,23 @@ decoder =
         (JD.field "Items" JD.value)
         |> JD.andThen
             (\( count, items ) ->
-                items
-                    |> JD.decodeValue (JD.index 0 Invoice.decoder)
-                    |> Result.map
-                        (\invoice ->
-                            (List.range 1 (count - 1)
-                                |> List.map
-                                    (\i ->
-                                        JD.decodeValue (JD.index i LineItem.decoder) items
-                                    )
-                            )
-                                |> combine
-                                |> Result.map
-                                    (\invoiceItems ->
-                                        JD.succeed { invoice | lineItems = invoiceItems }
-                                    )
-                                |> Result.withDefault (JD.fail "Invalid line item")
+                case JD.decodeValue (JD.index 0 Invoice.decoder) items of
+                    Ok invoice ->
+                        (List.range 1 (count - 1)
+                            |> List.map
+                                (\i ->
+                                    JD.decodeValue (JD.index i LineItem.decoder) items
+                                )
                         )
-                    |> Result.withDefault (JD.fail "Invalid invoice")
+                            |> combine
+                            |> Result.map
+                                (\invoiceItems ->
+                                    JD.succeed { invoice | lineItems = invoiceItems }
+                                )
+                            |> Result.withDefault (JD.fail "LINE ITEM")
+
+                    Err err ->
+                        JD.fail ("Invoice: " ++ JD.errorToString err)
             )
 
 
@@ -265,3 +310,13 @@ fetchInvoices invoiceId =
     , decoder = decoder
     }
         |> Api.request
+
+
+invoiceNum invoice =
+    invoice.number
+        |> String.fromInt
+        |> String.padLeft 7 '0'
+
+
+formatDate =
+    Iso8601.fromTime >> String.left 10
