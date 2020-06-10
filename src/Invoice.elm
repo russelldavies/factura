@@ -54,9 +54,11 @@ taxes invoice =
 
 total : Invoice -> Float
 total invoice =
-    invoice.lineItems
-        |> List.map LineItem.total
-        |> List.sum
+    let
+        taxTotal =
+            taxes invoice |> List.map Tuple.second |> List.sum
+    in
+    subTotal invoice + taxTotal
 
 
 decoder : Decoder Invoice
