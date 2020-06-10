@@ -73,7 +73,7 @@ view model =
                 text "Initialising..."
 
             Loading ->
-                text "Loading..."
+                none
 
             Failure err ->
                 text "Something failed! We've been notified and will be right on it."
@@ -83,7 +83,7 @@ view model =
                     [ viewInvoice invoice
                     , link []
                         { url = Route.toString (Route.Client invoice.clientId)
-                        , label = text "View all invoices"
+                        , label = el [ Font.underline ] <| text "View all invoices"
                         }
                     ]
     }

@@ -60,11 +60,10 @@ view model =
                 text "Initialising..."
 
             Loading ->
-                text "Loading..."
+                none
 
             Failure err ->
-                Debug.log (Debug.toString err) <|
-                    text "Something failed! We've been notified and will be right on it."
+                text "Something failed! We've been notified and will be right on it."
 
             Success client ->
                 column
