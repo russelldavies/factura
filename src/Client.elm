@@ -28,6 +28,6 @@ decoder =
         |> requiredAt [ "Name", "S" ] (Decode.nullable Decode.string)
         |> requiredAt [ "Address", "S" ] Decode.string
         |> requiredAt [ "Email", "S" ] Decode.string
-        |> requiredAt [ "Phone", "S" ] (Decode.nullable Decode.string)
+        |> optionalAt [ "Phone", "S" ] (Decode.nullable Decode.string) Nothing
         |> optionalAt [ "TaxNumber", "M" ] (Decode.nullable Tax.taxNumberDecoder) Nothing
         |> hardcoded []
