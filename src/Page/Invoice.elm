@@ -314,6 +314,7 @@ fetchInvoices invoiceId =
                     [ ( "S", Encode.string pk ) ]
               )
             ]
+    , scanIndexForward = True
     , decoder = decoder
     }
         |> Api.request

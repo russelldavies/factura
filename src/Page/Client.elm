@@ -93,7 +93,7 @@ viewInvoices : List Invoice -> Element msg
 viewInvoices invoices =
     column [ width fill ]
         [ el [ Font.size 24 ] <| text "Invoices"
-        , table []
+        , table [ spacing 5 ]
             { data = invoices
             , columns =
                 [ { header = text "Number"
@@ -181,6 +181,7 @@ fetchClient clientId =
                     [ ( "S", Encode.string pk ) ]
               )
             ]
+    , scanIndexForward = False
     , decoder = decoder
     }
         |> Api.request

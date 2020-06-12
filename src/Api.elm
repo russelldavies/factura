@@ -23,6 +23,7 @@ request :
     , indexName : Maybe String
     , keyConditionExpression : String
     , expressionAttributeValues : Encode.Value
+    , scanIndexForward : Bool
     , decoder : Decode.Decoder a
     }
     -> Task Http.Error a
@@ -54,9 +55,10 @@ buildBody :
         | indexName : Maybe String
         , keyConditionExpression : String
         , expressionAttributeValues : Encode.Value
+        , scanIndexForward : Bool
     }
     -> Encode.Value
-buildBody { indexName, keyConditionExpression, expressionAttributeValues } =
+buildBody { scanIndexForward, indexName, keyConditionExpression, expressionAttributeValues } =
     case indexName of
         Just indexName_ ->
             Encode.object
@@ -64,6 +66,7 @@ buildBody { indexName, keyConditionExpression, expressionAttributeValues } =
                 , ( "IndexName", Encode.string indexName_ )
                 , ( "KeyConditionExpression", Encode.string keyConditionExpression )
                 , ( "ExpressionAttributeValues", expressionAttributeValues )
+                , ( "ScanIndexForward", Encode.bool scanIndexForward )
                 ]
 
         Nothing ->
@@ -71,6 +74,7 @@ buildBody { indexName, keyConditionExpression, expressionAttributeValues } =
                 [ ( "TableName", Encode.string Constants.tableName )
                 , ( "KeyConditionExpression", Encode.string keyConditionExpression )
                 , ( "ExpressionAttributeValues", expressionAttributeValues )
+                , ( "ScanIndexForward", Encode.bool scanIndexForward )
                 ]
 
 
