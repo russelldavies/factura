@@ -1,11 +1,21 @@
-import boto3
 from ulid import ULID
+import boto3
 import datetime
 import os
+import yaml
 
 
 table_name = os.environ['TABLE_NAME']
 ddb_client = boto3.client('dynamodb')
+
+
+def new_invoice():
+    with open('invoice.yaml') as f:
+        data = yaml.safe_load(f)
+        invoice_id = create_invoice(data['account_id'], data['client_id'], data['invoice'])
+        for line_item in data['line_items']:
+            create_line_item(invoice_id, line_item)
+        return invoice_id
 
 
 def create_account(account):
@@ -117,7 +127,7 @@ def next_invoice_num(account_id):
         ExpressionAttributeValues=dict_to_item({ ':num': 1 }, False),
         ReturnValues='UPDATED_NEW'
     )
-    return resp['Attributes']['LastInvoiceNumber']['N']
+    return int(resp['Attributes']['LastInvoiceNumber']['N'])
 
 
 # Helpers

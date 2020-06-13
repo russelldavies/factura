@@ -24,7 +24,7 @@ decoder : Decoder Client
 decoder =
     Decode.succeed Client
         |> requiredAt [ "ClientId", "S" ] Ulid.decode
-        |> requiredAt [ "Company", "S" ] (Decode.nullable Decode.string)
+        |> optionalAt [ "Company", "S" ] (Decode.nullable Decode.string) Nothing
         |> requiredAt [ "Name", "S" ] (Decode.nullable Decode.string)
         |> requiredAt [ "Address", "S" ] Decode.string
         |> requiredAt [ "Email", "S" ] Decode.string
