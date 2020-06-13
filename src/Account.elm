@@ -9,7 +9,8 @@ import Ulid exposing (Ulid)
 
 
 type alias Account =
-    { company : Maybe String
+    { accountId : Ulid
+    , company : Maybe String
     , name : Maybe String
     , address : String
     , email : String
@@ -23,6 +24,7 @@ type alias Account =
 decoder : Decoder Account
 decoder =
     Decode.succeed Account
+        |> requiredAt [ "AccountId", "S" ] Ulid.decode
         |> requiredAt [ "Company", "S" ] (Decode.nullable Decode.string)
         |> requiredAt [ "Name", "S" ] (Decode.nullable Decode.string)
         |> requiredAt [ "Address", "S" ] Decode.string

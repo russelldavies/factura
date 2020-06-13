@@ -9,51 +9,59 @@ ddb_client = boto3.client('dynamodb')
 
 
 def create_account(account):
-    ddb_client.put_item(
-        TableName=table_name,
-        Item={
-            **make_indexes('Account', PK='ACCOUNT', SK='ACCOUNT'),
-            **dict_to_item(account)
-        },
+    account['account_id'] = str(ULID())
+    account_item = {
+        **make_indexes('Account', PK=f'ACCOUNT#{account["account_id"]}',
+                       SK=f'ACCOUNT#{account["account_id"]}'),
+        **dict_to_item(account)
+    }
+    ddb_client.transact_write_items(
+        TransactItems=[
+            make_put_unique(account_item),
+            make_put_unique(dict_to_item({
+                'PK': f'ACCOUNTEMAIL#{account["email"]}',
+                'SK': f'ACCOUNTEMAIL#{account["email"]}',
+            }, False)),
+        ]
     )
+    return account['account_id']
 
 
-def create_client(client):
-    client_id = str(ULID())
-    client['client_id'] = client_id
-
+def create_client(account_id, client):
+    client['client_id'] = str(ULID())
     client_item = {
-        **make_indexes('Client', PK=f'CLIENT#{client_id}', SK=f'CLIENT#{client_id}'),
+        **make_indexes('Client', PK=f'CLIENT#{client["client_id"]}',
+                       SK=f'CLIENT#{client["client_id"]}'),
         **dict_to_item(client)
     }
     ddb_client.transact_write_items(
         TransactItems=[
             make_put_unique(client_item),
             make_put_unique(dict_to_item({
-                'PK': f"CLIENTEMAIL#{client['email']}",
-                'SK': f"CLIENTEMAIL#{client['email']}",
+                'PK': f'ACCOUNT#{account_id}#CLIENTEMAIL#{client["email"]}',
+                'SK': f'ACCOUNT#{account_id}#CLIENTEMAIL#{client["email"]}',
             }, False)),
             {
                 'Update': {
                     'TableName': table_name,
                     'Key': dict_to_item({
-                        'PK': 'ACCOUNT',
-                        'SK': 'ACCOUNT',
+                        'PK': f'ACCOUNT#{account_id}',
+                        'SK': f'ACCOUNT#{account_id}',
                     }, False),
                     'UpdateExpression': 'ADD Clients :clientId',
                     'ExpressionAttributeValues': dict_to_item({
-                        ':clientId': set([client_id]),
+                        ':clientId': set([client['client_id']]),
                     }, False),
                 }
             },
         ]
     )
-    return client_id
+    return client['client_id']
 
 
-def create_invoice(client_id, invoice):
+def create_invoice(account_id, client_id, invoice):
     if not invoice.get('number'):
-        invoice['number'] = next_invoice_num()
+        invoice['number'] = next_invoice_num(account_id)
     invoice_id = str(ULID.from_datetime(invoice['issued_on']))
     invoice['invoice_id'] = invoice_id
     invoice['client_id'] = client_id
@@ -71,8 +79,8 @@ def create_invoice(client_id, invoice):
         TransactItems=[
             make_put_unique(invoice_item),
             make_put_unique(dict_to_item({
-                'PK': f'INVOICENUMBER{invoice["number"]}',
-                'SK': f'INVOICENUMBER{invoice["number"]}',
+                'PK': f'ACCOUNT#{account_id}#INVOICENUMBER#{invoice["number"]}',
+                'SK': f'ACCOUNT#{account_id}#INVOICENUMBER#{invoice["number"]}',
             }, False)),
         ]
     )
@@ -98,12 +106,12 @@ def create_line_item(invoice_id, line_item):
     return line_item_id
 
 
-def next_invoice_num():
+def next_invoice_num(account_id):
     resp = ddb_client.update_item(
         TableName=table_name,
         Key=dict_to_item({
-            'PK': f'ACCOUNT',
-            'SK': f'ACCOUNT',
+            'PK': f'ACCOUNT#{account_id}',
+            'SK': f'ACCOUNT#{account_id}',
         }, False),
         UpdateExpression='SET LastInvoiceNumber = LastInvoiceNumber + :num',
         ExpressionAttributeValues=dict_to_item({ ':num': 1 }, False),

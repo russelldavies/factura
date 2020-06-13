@@ -9,10 +9,10 @@ def load():
     with open('./import/data.yaml') as f:
         import_data = yaml.safe_load(f)
 
-    admin.create_account(import_data['account'])
+    account_id = admin.create_account(import_data['account'])
     clients = {}
     for client_key, client_details in import_data['clients'].items():
-        clients[client_key] = admin.create_client(client_details)
+        clients[client_key] = admin.create_client(account_id, client_details)
         print(f'Created client {client_key}')
 
     with open('import/invoices.csv', 'r') as f:
@@ -22,7 +22,7 @@ def load():
             client_id = clients[client_key]
             supplier = import_data['suppliers'][row['supplier']]
             customer = import_data['customers'][row['customer']]
-            invoice_id = create_invoice(client_id, supplier, customer, row)
+            invoice_id = create_invoice(account_id, client_id, supplier, customer, row)
             line_items = process_line_items(invoice_id, row)
             print('Created invoice ', invoice_id)
 
@@ -35,8 +35,8 @@ def process_line_items(invoice_id, invoice_row):
             create_line_item(invoice_id, invoice_row, row)
 
 
-def create_invoice(client_id, supplier, customer, row):
-    return admin.create_invoice(client_id, {
+def create_invoice(account_id, client_id, supplier, customer, row):
+    return admin.create_invoice(account_id, client_id, {
         'number': int(row['invoice_number']),
         'supplier': supplier,
         'customer': customer,
