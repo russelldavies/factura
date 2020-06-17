@@ -156,7 +156,7 @@ def dict_to_item(d, rekey=True):
 
 def ddb_json(val):
     if type(val) is str:
-        return {'S': val}
+        return {'S': val.strip()}
     elif type(val) in (int, float):
         return {'N': str(val)}
     elif val is None:
