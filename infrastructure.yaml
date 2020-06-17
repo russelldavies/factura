@@ -1,0 +1,117 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Infrastructure resources for Factura
+Parameters:
+  AcmCertificateArn:
+    Type: String
+    Description: the Amazon Resource Name (ARN) of an AWS Certificate Manager (ACM) certificate in us-east-1
+    AllowedPattern: "arn:aws:acm:us-east-1:.*"
+  DomainName:
+    Type: String
+    Description: The DNS name of the website e.g. example.com
+    AllowedPattern: (?!-)[a-zA-Z0-9-.]{1,63}(?<!-)
+    ConstraintDescription: must be a valid DNS zone name.
+Resources:
+  Database:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+        - AttributeName: GSI1PK
+          AttributeType: S
+        - AttributeName: GSI1SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: GSI1
+          KeySchema:
+            - AttributeName: GSI1PK
+              KeyType: HASH
+            - AttributeName: GSI1SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      BillingMode: PAY_PER_REQUEST
+    DeletionPolicy: Retain
+  DBUser:
+    Type: AWS::IAM::User
+    Properties:
+      Policies:
+        - PolicyName: ddb_get_query
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:Query
+                Resource:
+                  - !GetAtt Database.Arn
+                  - !Sub '${Database.Arn}/index/*'
+  DBAccessKey:
+    Type: AWS::IAM::AccessKey
+    Properties:
+      UserName:
+        !Ref DBUser
+  FrontendBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+  OriginAccessIdentity:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Ref FrontendBucket
+  WebsiteCloudFront:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Aliases:
+          - !Ref DomainName
+        DefaultCacheBehavior:
+          Compress: true
+          DefaultTTL: 3600
+          ForwardedValues:
+            QueryString: false
+          TargetOriginId: !Sub "S3-${WebsiteBucket}"
+          ViewerProtocolPolicy: redirect-to-https
+        DefaultRootObject: index.html
+        Enabled: true
+        HttpVersion: http2
+        Origins:
+          - DomainName: !GetAtt WebsiteBucket.DomainName
+            Id: !Sub "S3-${WebsiteBucket}"
+            S3OriginConfig:
+              OriginAccessIdentity: !Join ["", ["origin-access-identity/cloudfront/", !Ref OriginAccessIdentity]]
+        ViewerCertificate:
+          AcmCertificateArn: !Ref AcmCertificateArn
+          MinimumProtocolVersion: TLSv1.2_2018
+          SslSupportMethod: sni-only
+  DomainDns:
+      Type: AWS::Route53::RecordSet
+      Properties:
+        AliasTarget:
+          # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53-aliastarget.html
+          HostedZoneId: "Z2FDTNDATAQYW2"
+          DNSName: !GetAtt WebsiteCloudFront.DomainName
+        HostedZoneName: !Sub "${DomainName}."
+        Name: !Sub "${DomainName}."
+        Type: A
+Outputs:
+  AccessKeyforWebUser:
+    Value:
+      !Ref DBAccessKey
+  SecretKeyforWebUser:
+    Value: !GetAtt DBAccessKey.SecretAccessKey
+  DatabaseArn:
+    Value: !GetAtt Database.Arn
